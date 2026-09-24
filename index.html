@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RAG nedir? Model ezberlemesin, doğru kaynaktan çeksin</title>
+  <meta name="description" content="Retrieval-Augmented Generation: LLM halüsinasyonunu nasıl azaltır, pipeline nasıl çalışır, üretimde nelere dikkat edilir?" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --ink: #1c222b;
+      --muted: #5a6470;
+      --accent: #0e5aa7;
+      --accent-2: #0f7670;
+      --card: #ffffff;
+      --line: #d2d8e0;
+      --warn: #b45309;
+      --max: 720px;
+      --wide: 920px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: "Source Sans 3", system-ui, sans-serif;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #dce8f5 0%, transparent 55%),
+        radial-gradient(900px 500px at 100% 0%, #d8efe9 0%, transparent 50%),
+        var(--bg);
+      color: var(--ink);
+      line-height: 1.65;
+      font-size: 1.125rem;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(10px);
+      background: rgba(244, 246, 248, 0.85);
+      border-bottom: 1px solid var(--line);
+      padding: 0.85rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+    .topbar a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .topbar span { color: var(--muted); font-size: 0.9rem; }
+
+    .hero {
+      max-width: var(--wide);
+      margin: 0 auto;
+      padding: 3.5rem 1.25rem 1.5rem;
+    }
+    .eyebrow {
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 0.8rem;
+      margin-bottom: 1rem;
+    }
+    h1 {
+      font-family: Fraunces, Georgia, serif;
+      font-size: clamp(2.2rem, 5vw, 3.4rem);
+      line-height: 1.15;
+      font-weight: 700;
+      max-width: 18ch;
+      margin-bottom: 1rem;
+    }
+    .lede {
+      font-size: 1.25rem;
+      color: var(--muted);
+      max-width: 42ch;
+      margin-bottom: 2rem;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.5rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-bottom: 2rem;
+    }
+
+    .cover {
+      max-width: var(--wide);
+      margin: 0 auto 3rem;
+      padding: 0 1.25rem;
+    }
+    .cover img, figure img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      box-shadow: 0 18px 40px rgba(28, 34, 43, 0.08);
+    }
+    figcaption {
+      margin-top: 0.75rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+      text-align: center;
+    }
+
+    article {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0 1.25rem 5rem;
+    }
+    article h2 {
+      font-family: Fraunces, Georgia, serif;
+      font-size: 1.75rem;
+      margin: 2.75rem 0 1rem;
+      line-height: 1.25;
+    }
+    article p { margin-bottom: 1.15rem; }
+    article ul, article ol {
+      margin: 0 0 1.25rem 1.25rem;
+    }
+    article li { margin-bottom: 0.4rem; }
+    article strong { font-weight: 700; }
+    .equation {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--accent);
+      border-radius: 12px;
+      padding: 1.1rem 1.25rem;
+      margin: 1.5rem 0;
+      font-weight: 600;
+    }
+    .figure-block {
+      max-width: var(--wide);
+      width: calc(100vw - 2.5rem);
+      margin: 2rem calc(50% - 50vw + 1.25rem);
+      padding: 0;
+    }
+    @media (min-width: 960px) {
+      .figure-block {
+        margin-left: calc(50% - var(--wide) / 2);
+        margin-right: calc(50% - var(--wide) / 2);
+        width: var(--wide);
+      }
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+      font-size: 0.98rem;
+      background: var(--card);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+    }
+    th, td {
+      text-align: left;
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    th {
+      background: #e8f0f8;
+      color: var(--accent);
+      font-weight: 700;
+    }
+    tr:last-child td { border-bottom: none; }
+
+    .cta {
+      margin-top: 3rem;
+      padding: 1.5rem;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #0e5aa7, #0f7670);
+      color: #fff;
+    }
+    .cta h3 {
+      font-family: Fraunces, Georgia, serif;
+      font-size: 1.4rem;
+      margin-bottom: 0.5rem;
+    }
+    .cta p { margin: 0; opacity: 0.95; }
+
+    footer {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0 1.25rem 3rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="#icerik">RAG Makalesi</a>
+    <span>Retrieval-Augmented Generation</span>
+  </div>
+
+  <header class="hero">
+    <p class="eyebrow">Teknik makale</p>
+    <h1>RAG nedir? Model ezberlemesin, doğru kaynaktan çeksin</h1>
+    <p class="lede">Retrieval-Augmented Generation: LLM halüsinasyonunu nasıl azaltır, pipeline nasıl çalışır, üretimde nelere dikkat edilir?</p>
+    <div class="meta">
+      <span>Okuma: ~8 dk</span>
+      <span>Seviye: Orta</span>
+      <span>Görseller: 6 diyagram</span>
+    </div>
+  </header>
+
+  <div class="cover">
+    <figure>
+      <img src="rag-assets/01-cover.png" alt="RAG kapak: Retrieve, Augment, Generate" />
+      <figcaption>Şekil 1 — RAG’in üç çekirdek adımı</figcaption>
+    </figure>
+  </div>
+
+  <article id="icerik">
+    <p>Son iki yıldır herkes aynı soruyu soruyor: “Model neden yanlış cevap veriyor?”</p>
+    <p>Cevabın çoğu zaman modelden değil, <strong>bağlamdan</strong> geldiğini unutuyoruz.</p>
+    <p>Bir LLM eğitim kesimine kadar gördüklerini geneller. Şirket PDF’iniz, dünkü politika değişikliğiniz veya dahili ticket’larınız o ağırlıklarda yoktur. Model “bilmiyorum” demek yerine çoğu zaman <strong>ikna edici bir uydurma</strong> üretir.</p>
+    <p>Bu boşluğu kapatan mimariye RAG denir: <strong>Retrieval-Augmented Generation</strong> — önce bul, sonra üret.</p>
+
+    <div class="equation">Cevap = Getirilen kanıt + LLM üretimi</div>
+
+    <h2>Neden RAG?</h2>
+    <p>Saf LLM’nin üç kör noktası vardır:</p>
+    <ol>
+      <li><strong>Bilgi kesimi</strong> — Eğitim tarihi sonrası olayları bilmez.</li>
+      <li><strong>Halüsinasyon</strong> — Kaynak yoksa güvenle uydurabilir.</li>
+      <li><strong>Gizli / kurumsal veri</strong> — Şirket belgeleri modelde yoktur (ve olmamalıdır).</li>
+    </ol>
+    <p>RAG bu üç sorunu “modeli yeniden eğit” demeden çözer: ilgili parçayı dışarıdan getirir, prompt’a koyar, modeli o kanıta bağlı tutar.</p>
+
+    <figure class="figure-block">
+      <img src="rag-assets/02-why-rag.png" alt="Saf LLM'nin üç kör noktası diyagramı" />
+      <figcaption>Şekil 2 — Neden RAG gerekir?</figcaption>
+    </figure>
+
+    <h2>RAG nasıl çalışır? (6 adım)</h2>
+    <ol>
+      <li><strong>Kaynak</strong> — PDF, wiki, Notion, SQL, ticket, e-posta arşivi…</li>
+      <li><strong>Chunk</strong> — Belgeleri anlamlı parçalara böl.</li>
+      <li><strong>Embed</strong> — Her parçayı embedding modeli ile vektöre çevir.</li>
+      <li><strong>Index</strong> — Vektör veritabanına yaz.</li>
+      <li><strong>Retrieve</strong> — Soruya en yakın k parçayı getir.</li>
+      <li><strong>Generate</strong> — Kanıta dayalı cevap üret; yoksa “bilmiyorum” de.</li>
+    </ol>
+    <p>Kritik nokta: RAG “daha akıllı model” demek değildir. RAG, <strong>doğru parçayı doğru zamanda bağlama koyma</strong> mühendisliğidir.</p>
+
+    <figure class="figure-block">
+      <img src="rag-assets/03-pipeline.png" alt="RAG pipeline 6 adım diyagramı" />
+      <figcaption>Şekil 3 — Uçtan uca RAG pipeline</figcaption>
+    </figure>
+
+    <h2>Saf LLM vs RAG</h2>
+    <table>
+      <thead>
+        <tr><th></th><th>Saf LLM</th><th>RAG</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Bilgi</td><td>Eğitim seti</td><td>Canlı / kurumsal kaynak</td></tr>
+        <tr><td>Atıf</td><td>Zayıf / yok</td><td>Parça + belge referansı</td></tr>
+        <tr><td>Güncellik</td><td>Eğitim kesimi</td><td>İndeks güncellemesi</td></tr>
+        <tr><td>Gizli veri</td><td>Modele gömmek riskli</td><td>ACL ile retrieval</td></tr>
+        <tr><td>Hata tipi</td><td>Halüsinasyon</td><td>Yanlış retrieval / kötü chunk</td></tr>
+      </tbody>
+    </table>
+
+    <figure class="figure-block">
+      <img src="rag-assets/04-llm-vs-rag.png" alt="Saf LLM ile RAG karşılaştırması" />
+      <figcaption>Şekil 4 — Saf LLM ile RAG farkı</figcaption>
+    </figure>
+
+    <h2>Anatomi: bir RAG sisteminin parçaları</h2>
+    <ul>
+      <li><strong>Ingestion</strong> — Parser, chunker, metadata</li>
+      <li><strong>Retrieval</strong> — Dense + hybrid + reranker</li>
+      <li><strong>Generation</strong> — Prompt, citation, guardrail</li>
+      <li><strong>Eval &amp; Ops</strong> — Faithfulness, maliyet, drift</li>
+      <li><strong>Security</strong> — ACL, PII, audit</li>
+      <li><strong>UX</strong> — Kaynak önizleme, feedback</li>
+    </ul>
+    <p>İyi retrieval kötü LLM’i kurtarabilir; kötü retrieval en iyi modeli de batırır.</p>
+
+    <figure class="figure-block">
+      <img src="rag-assets/05-anatomy.png" alt="RAG mimari anatomi diyagramı" />
+      <figcaption>Şekil 5 — Mimari anatomi</figcaption>
+    </figure>
+
+    <h2>Pratikte en çok yapılan hatalar</h2>
+    <ul>
+      <li>Chunk’ı umursamamak — metadata kaybolunca retrieval körleşir.</li>
+      <li>Sadece cosine — hybrid (BM25 + dense) çoğu kurumsal aramada daha iyi.</li>
+      <li>Eval’siz canlıya çıkmak — 50–100 soruluk altın set şart.</li>
+      <li>Atıf göstermemek — kullanıcı doğrulayamaz.</li>
+      <li>Yetkisiz retrieval — belge seviyesinde ACL zorunlu.</li>
+      <li>Her şeyi fine-tune ile çözmek — sık değişen bilgi için RAG.</li>
+    </ul>
+
+    <h2>Ne zaman RAG, ne zaman fine-tune?</h2>
+    <ul>
+      <li><strong>RAG:</strong> Sık güncellenen bilgi, çok kaynak, atıf zorunlu, gizlilik.</li>
+      <li><strong>Fine-tune:</strong> Üslup, format, domain dili, sabit davranış.</li>
+      <li><strong>İkisi birlikte:</strong> Fine-tune davranışı öğretir; RAG gerçeği getirir.</li>
+    </ul>
+
+    <h2>30 günlük yol haritası</h2>
+    <p><strong>Hafta 1 — Temel:</strong> Tek corpus, basit chunk, top-k, atıflı cevap.</p>
+    <p><strong>Hafta 2–3 — Kalite:</strong> Hybrid, rerank, eval set, metadata filtre.</p>
+    <p><strong>Ay 2+ — Üretim:</strong> ACL + audit, izleme, feedback, maliyet tavanı.</p>
+
+    <figure class="figure-block">
+      <img src="rag-assets/06-checklist.png" alt="RAG 30 günlük yol haritası" />
+      <figcaption>Şekil 6 — Pratik kontrol listesi</figcaption>
+    </figure>
+
+    <h2>Kapanış</h2>
+    <p>RAG bir “prompt numarası” değil; <strong>bilgi erişim + üretim</strong> disiplini.</p>
+    <p>Modeli büyütmek her sorunu çözmez. Çoğu zaman eksik olan şey daha büyük bir model değil — doğru belgenin, doğru parçanın, doğru yetkiyle, doğru anda bağlama girmesidir.</p>
+    <p><strong>Model ezberlemesin. Doğru kaynaktan çeksin.</strong></p>
+
+    <div class="cta">
+      <h3>LinkedIn’e taşımak için</h3>
+      <p>Metin: <code>docs/linkedin-rag-makale.md</code> · Görseller: <code>docs/rag-assets/*.png</code> — kapaktan checklist’e sırayla ekleyin.</p>
+    </div>
+  </article>
+
+  <footer>
+    Yerel makale sayfası · diyagramlar PNG · LinkedIn yayın metni hazır
+  </footer>
+</body>
+</html>
